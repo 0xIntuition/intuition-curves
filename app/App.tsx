@@ -1,7 +1,6 @@
 import React from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from './components/ui/card'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-// import './styles/globals.css'
 
 const data = [
   { name: 'Jan', value: 400 },
@@ -24,14 +23,14 @@ const App: React.FC = () => {
             <CardTitle>Performance Metrics</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data}>
+            <div style={{ width: '100%', height: 300 }}>
+              <ResponsiveContainer>
+                <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
-                  <Line type="monotone" dataKey="value" stroke="#8884d8" />
+                  <Line type="monotone" dataKey="value" stroke="#8884d8" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
