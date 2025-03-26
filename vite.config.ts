@@ -10,4 +10,19 @@ export default defineConfig({
       '@': path.resolve(__dirname, './app'),
     },
   },
+  server: {
+    port: 3000,
+    open: true,
+  },
+  build: {
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'ui-vendor': ['@radix-ui/react-icons', 'class-variance-authority', 'clsx', 'tailwind-merge'],
+        },
+      },
+    },
+  },
 })
