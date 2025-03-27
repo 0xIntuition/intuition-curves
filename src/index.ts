@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { swagger } from '@elysiajs/swagger';
 import { currentPriceRoute } from './routes/currentPrice';
 import { nameRoute } from './routes/name';
 import { maxSharesRoute } from './routes/maxShares';
@@ -11,7 +12,21 @@ import { convertToSharesRoute } from './routes/convertToShares';
 import { convertToAssetsRoute } from './routes/convertToAssets';
 
 const app = new Elysia()
-  .get("/", () => "Hello Elysia")
+  .use(swagger({
+    documentation: {
+      info: {
+        title: 'Intuition Curves API',
+        version: '1.0.0',
+        description: 'API for querying Intuition Curves',
+      },
+      tags: [
+        { name: 'Curves', description: 'Curve-related endpoints' },
+        { name: 'Preview', description: 'Preview calculation endpoints' },
+        { name: 'Conversion', description: 'Conversion-related endpoints' }
+      ]
+    }
+  }))
+  .get("/", () => "GM")
   .use(currentPriceRoute)
   .use(nameRoute)
   .use(maxSharesRoute)

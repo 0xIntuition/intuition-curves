@@ -9,6 +9,7 @@
     "get-curves": "bun run scripts/getCurveCode.ts"
   },
   "dependencies": {
+    "@elysiajs/swagger": "^1.2.2",
     "elysia": "latest",
     "viem": "^2.7.9"
   },
