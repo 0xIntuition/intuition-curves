@@ -40,3 +40,13 @@ yarn-error.log*
 **/*.log
 package-lock.json
 **/*.bun
+
+# Build output
+dist/
+out/
+
+# Foundry
+cache/
+out/
+node_modules/
+.env

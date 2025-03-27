@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: intuition-curves
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /
+    autoDeploy: true
