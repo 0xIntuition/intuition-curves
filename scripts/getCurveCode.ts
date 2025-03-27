@@ -1,4 +1,4 @@
-import { createPublicClient, http } from 'viem';
+import { createPublicClient, http, decodeAbiParameters } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -31,6 +31,40 @@ const REGISTRY_ABI = [
   }
 ] as const;
 
+interface DeploymentInfo {
+  address: string;
+  name: string;
+  constructorArgs: any[];
+  constructorArgTypes: string[];
+}
+
+function decodeConstructorArgs(hexArgs: string, abi: any[]): { args: any[], types: string[] } {
+  try {
+    // Find the constructor in the ABI
+    const constructor = abi.find(item => item.type === 'constructor');
+    if (!constructor) {
+      return { args: [], types: [] };
+    }
+
+    // Get the input parameters
+    const inputParams = constructor.inputs || [];
+    const types = inputParams.map((param: { type: string }) => param.type);
+
+    // Remove the '0x' prefix if present and ensure we have valid hex data
+    const cleanHexArgs = hexArgs.startsWith('0x') ? hexArgs.slice(2) : hexArgs;
+
+    // Decode the arguments
+    const args = decodeAbiParameters(inputParams, `0x${cleanHexArgs}` as `0x${string}`);
+
+    return { args, types };
+  } catch (error) {
+    console.error('Error decoding constructor arguments:', error);
+    // Log the hex arguments for debugging
+    console.log('Hex arguments:', hexArgs);
+    return { args: [], types: [] };
+  }
+}
+
 async function main() {
   // Initialize Viem client
   const client = createPublicClient({
@@ -62,6 +96,9 @@ async function main() {
     fs.mkdirSync(contractsDir);
   }
 
+  // Array to store deployment information
+  const deploymentInfo: DeploymentInfo[] = [];
+
   // Fetch each curve's source code
   for (let i = 1; i <= count; i++) {
     const curveAddress = await client.readContract({
@@ -74,7 +111,7 @@ async function main() {
     console.log(`\nFetching source code for curve ${i} at ${curveAddress}`);
 
     try {
-      // Fetch source code from Basescan
+      // Fetch source code and ABI from Basescan
       const response = await fetch(
         `https://api-sepolia.basescan.org/api?module=contract&action=getsourcecode&address=${curveAddress}&apikey=${process.env.BASESCAN_API_KEY}`
       );
@@ -84,6 +121,21 @@ async function main() {
       if (data.status === '1' && data.result[0].SourceCode) {
         let sourceCode = data.result[0].SourceCode;
         const contractName = data.result[0].ContractName || `Curve${i}`;
+        const abi = JSON.parse(data.result[0].ABI);
+
+        // Decode constructor arguments
+        const { args, types } = decodeConstructorArgs(
+          data.result[0].ConstructorArguments,
+          abi
+        );
+
+        // Store deployment information
+        deploymentInfo.push({
+          address: curveAddress,
+          name: contractName,
+          constructorArgs: args,
+          constructorArgTypes: types
+        });
 
         // Handle JSON formatted source code
         try {
@@ -120,6 +172,18 @@ async function main() {
     // Add a small delay to avoid rate limiting
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
+
+  // Display deployment information at the end
+  console.log('\n=== Deployment Information ===');
+  deploymentInfo.forEach((info, index) => {
+    console.log(`\nCurve ${index + 1}:`);
+    console.log(`Name: ${info.name}`);
+    console.log(`Address: ${info.address}`);
+    console.log('Constructor Arguments:');
+    info.constructorArgs.forEach((arg, i) => {
+      console.log(`  ${info.constructorArgTypes[i]}: ${arg}`);
+    });
+  });
 }
 
 main().catch(console.error);
