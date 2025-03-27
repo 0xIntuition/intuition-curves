@@ -184,6 +184,26 @@ async function main() {
       console.log(`  ${info.constructorArgTypes[i]}: ${arg}`);
     });
   });
+
+  // Save deployment information to JSON file
+  const jsonOutput = {
+    registryAddress,
+    curves: deploymentInfo.map((info, index) => ({
+      id: index + 1,
+      name: info.name,
+      address: info.address,
+      constructorArgs: info.constructorArgs.map((arg, i) => ({
+        type: info.constructorArgTypes[i],
+        value: typeof arg === 'bigint' ? arg.toString() : arg
+      }))
+    }))
+  };
+
+  fs.writeFileSync(
+    path.join(contractsDir, 'curves.json'),
+    JSON.stringify(jsonOutput, null, 2)
+  );
+  console.log('\n✅ Saved deployment information to contracts/curves.json');
 }
 
 main().catch(console.error);
