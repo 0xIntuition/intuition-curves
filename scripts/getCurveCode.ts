@@ -81,19 +81,33 @@ async function main() {
 
       const data = await response.json();
 
-      console.log('API Response:', JSON.stringify(data, null, 2));
-
       if (data.status === '1' && data.result[0].SourceCode) {
-        const sourceCode = data.result[0].SourceCode;
+        let sourceCode = data.result[0].SourceCode;
         const contractName = data.result[0].ContractName || `Curve${i}`;
 
-        // Write to file
-        fs.writeFileSync(
-          path.join(contractsDir, `${contractName}.sol`),
-          sourceCode
-        );
-
-        console.log(`✅ Saved ${contractName}.sol`);
+        // Handle JSON formatted source code
+        try {
+          const parsedSource = JSON.parse(sourceCode.replace(/^{/, '').replace(/}$/, ''));
+          if (parsedSource.sources) {
+            // Extract all source files
+            for (const [filePath, fileContent] of Object.entries(parsedSource.sources)) {
+              const fileName = path.basename(filePath);
+              const fullPath = path.join(contractsDir, fileName);
+              fs.writeFileSync(
+                fullPath,
+                (fileContent as any).content
+              );
+              console.log(`✅ Saved ${fileName}`);
+            }
+          }
+        } catch (e) {
+          // If not JSON, write as is
+          fs.writeFileSync(
+            path.join(contractsDir, `${contractName}.sol`),
+            sourceCode
+          );
+          console.log(`✅ Saved ${contractName}.sol`);
+        }
       } else {
         console.log(`❌ Failed to fetch source code for curve ${i}`);
         console.log(`Status: ${data.status}`);
