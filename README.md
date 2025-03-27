@@ -52,3 +52,13 @@ The project includes a Dockerfile for containerized deployment. Build and run wi
 docker build -t intuition-curves .
 docker run -p 3000:3000 intuition-curves
 ```
+
+## Environment Variables
+
+You will need to provide the following `.env` variables:
+
+```bash
+MULTIVAULT_ADDRESS=
+BASESCAN_API_KEY=
+BASE_SEPOLIA_RPC_URL=
+```
