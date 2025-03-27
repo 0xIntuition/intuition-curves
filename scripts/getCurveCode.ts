@@ -2,6 +2,7 @@ import { createPublicClient, http, decodeAbiParameters } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 
 // ABI fragments
 const MULTIVAULT_ABI = [
@@ -36,6 +37,7 @@ interface DeploymentInfo {
   name: string;
   constructorArgs: any[];
   constructorArgTypes: string[];
+  sourceFiles: string[];
 }
 
 function decodeConstructorArgs(hexArgs: string, abi: any[]): { args: any[], types: string[] } {
@@ -119,9 +121,68 @@ async function main() {
       const data = await response.json();
 
       if (data.status === '1' && data.result[0].SourceCode) {
-        let sourceCode = data.result[0].SourceCode;
+        // Remove the extra { at the start and } at the end
+        const sourceCode = data.result[0].SourceCode.replace(/^{/, '').replace(/}$/, '');
+        const sourceJson = JSON.parse(sourceCode);
         const contractName = data.result[0].ContractName || `Curve${i}`;
         const abi = JSON.parse(data.result[0].ABI);
+
+        // Create a temporary directory for the source files
+        const tempDir = path.join(contractsDir, `temp_${contractName}`);
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+        }
+
+        // Write all source files to the temp directory
+        for (const [filePath, fileContent] of Object.entries(sourceJson.sources)) {
+          // Create subdirectories if needed
+          const fullPath = path.join(tempDir, filePath);
+          const dirPath = path.dirname(fullPath);
+          if (!fs.existsSync(dirPath)) {
+            fs.mkdirSync(dirPath, { recursive: true });
+          }
+
+          // Write the source file
+          fs.writeFileSync(
+            fullPath,
+            (fileContent as any).content
+          );
+        }
+
+        // Create a foundry.toml with the correct remappings
+        const remappings = (sourceJson.settings?.remappings || [])
+          .map((r: string) => `"${r}"`)
+          .join(',\n  ');
+        fs.writeFileSync(
+          path.join(tempDir, 'foundry.toml'),
+          `[profile.default]\nremappings = [\n  ${remappings}\n]\n`
+        );
+
+        // Find the main contract file
+        const mainContract = Object.keys(sourceJson.sources).find(file =>
+          file.includes(contractName) && file.endsWith('.sol')
+        );
+
+        if (!mainContract) {
+          throw new Error(`Could not find main contract file for ${contractName}`);
+        }
+
+        // Use forge flatten to combine all sources
+        const flattenedSource = execSync(
+          `cd ${tempDir} && forge flatten ${mainContract}`,
+          { encoding: 'utf8' }
+        );
+
+        // Write the flattened source to the contracts directory
+        const fileName = `${contractName}.sol`;
+        fs.writeFileSync(
+          path.join(contractsDir, fileName),
+          flattenedSource
+        );
+        console.log(`✅ Saved flattened ${fileName}`);
+
+        // Clean up temp directory
+        fs.rmSync(tempDir, { recursive: true, force: true });
 
         // Decode constructor arguments
         const { args, types } = decodeConstructorArgs(
@@ -134,36 +195,16 @@ async function main() {
           address: curveAddress,
           name: contractName,
           constructorArgs: args,
-          constructorArgTypes: types
+          constructorArgTypes: types,
+          sourceFiles: [fileName]
         });
-
-        // Handle JSON formatted source code
-        try {
-          const parsedSource = JSON.parse(sourceCode.replace(/^{/, '').replace(/}$/, ''));
-          if (parsedSource.sources) {
-            // Extract all source files
-            for (const [filePath, fileContent] of Object.entries(parsedSource.sources)) {
-              const fileName = path.basename(filePath);
-              const fullPath = path.join(contractsDir, fileName);
-              fs.writeFileSync(
-                fullPath,
-                (fileContent as any).content
-              );
-              console.log(`✅ Saved ${fileName}`);
-            }
-          }
-        } catch (e) {
-          // If not JSON, write as is
-          fs.writeFileSync(
-            path.join(contractsDir, `${contractName}.sol`),
-            sourceCode
-          );
-          console.log(`✅ Saved ${contractName}.sol`);
-        }
       } else {
         console.log(`❌ Failed to fetch source code for curve ${i}`);
         console.log(`Status: ${data.status}`);
         console.log(`Message: ${data.message || 'No message provided'}`);
+        if (data.result[0]) {
+          console.log(`Result: ${JSON.stringify(data.result[0], null, 2)}`);
+        }
       }
     } catch (error) {
       console.error(`Error fetching curve ${i}:`, error);
@@ -179,6 +220,8 @@ async function main() {
     console.log(`\nCurve ${index + 1}:`);
     console.log(`Name: ${info.name}`);
     console.log(`Address: ${info.address}`);
+    console.log('Source Files:');
+    info.sourceFiles.forEach(file => console.log(`  ${file}`));
     console.log('Constructor Arguments:');
     info.constructorArgs.forEach((arg, i) => {
       console.log(`  ${info.constructorArgTypes[i]}: ${arg}`);
@@ -192,6 +235,7 @@ async function main() {
       id: index + 1,
       name: info.name,
       address: info.address,
+      sourceFiles: info.sourceFiles,
       constructorArgs: info.constructorArgs.map((arg, i) => ({
         type: info.constructorArgTypes[i],
         value: typeof arg === 'bigint' ? arg.toString() : arg
