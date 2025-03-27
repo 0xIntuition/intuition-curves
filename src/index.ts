@@ -10,6 +10,7 @@ import { previewWithdrawRoute } from './routes/previewWithdraw';
 import { previewMintRoute } from './routes/previewMint';
 import { convertToSharesRoute } from './routes/convertToShares';
 import { convertToAssetsRoute } from './routes/convertToAssets';
+import { parametersRoute } from './routes/parameters';
 
 const app = new Elysia()
   .use(swagger({
@@ -37,6 +38,7 @@ const app = new Elysia()
   .use(previewMintRoute)
   .use(convertToSharesRoute)
   .use(convertToAssetsRoute)
+  .use(parametersRoute)
   .listen(3000);
 
 console.log(
