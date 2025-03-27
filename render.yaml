@@ -6,5 +6,11 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: BASE_SEPOLIA_RPC_URL
+        sync: false
+      - key: MULTIVAULT_ADDRESS
+        sync: false
+      - key: BASESCAN_API_KEY
+        sync: false
     healthCheckPath: /
     autoDeploy: true
