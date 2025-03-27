@@ -14,6 +14,12 @@ interface ConstructorArg {
   value: string;
 }
 
+interface CurveConfig {
+  name: string;
+  id?: string;
+  constructorArgs: ConstructorArg[];
+}
+
 async function compileAndDeploy(contractName: string, args: any[] = []) {
   console.log(`Compiling and deploying ${contractName}...`);
 
@@ -88,7 +94,13 @@ async function main() {
     const deploymentInfo = {
       timestamp: new Date().toISOString(),
       addresses,
-      network: 'anvil'
+      network: 'anvil',
+      curves: curvesConfig.curves.map((curve: CurveConfig) => ({
+        name: curve.name,
+        address: addresses[curve.name],
+        constructorArgs: curve.constructorArgs,
+        id: curve.id || curve.name // Fallback to name if no explicit ID
+      }))
     };
 
     fs.writeFileSync(
